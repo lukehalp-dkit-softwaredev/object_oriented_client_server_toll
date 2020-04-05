@@ -9,8 +9,6 @@ import java.io.*;
 import java.net.Socket;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.List;
-import java.util.Scanner;
 
 public class Client {
 
@@ -29,9 +27,13 @@ public class Client {
         this.term.info("Connected to server.\n");
     }
 
-    public void run() {
+    public boolean run() {
         this.running = true;
         while(running) {
+            if(!checkConnection()) {
+                this.term.warn("Lost connection to server! Reconnecting...\n");
+                return true;
+            }
             printMenu();
             String cmd = this.term.readLine("> ");
             switch (cmd) {
@@ -57,10 +59,28 @@ public class Client {
             }
         }
         this.term.info("&aGoodbye.&r");
+        return false;
     }
 
     public void printMenu() {
         this.term.info("&aToll System\n&c1. &rHeartbeat\n&c2. &rLoad Vehicles\n&c3. &rRegister Valid Toll Event\n&c4. &rRegister Invalid Toll Event\n&cq. &rQuit\n");
+    }
+
+    private boolean checkConnection() {
+        this.out.println("{\"PacketType\":\"Heartbeat\"}");
+        this.out.flush();
+        String response;
+        try {
+            response = this.in.readLine();
+            JsonReader reader = Json.createReader(new StringReader(response));
+            JsonObject json = reader.readObject();
+            if("Heartbeat response".equals(json.getString("PacketType"))) {
+                return true;
+            }
+        } catch (JsonParsingException | IOException | NullPointerException e) {
+            return false;
+        }
+        return false;
     }
 
     private void heartbeat() {
@@ -80,8 +100,8 @@ public class Client {
             }
         } catch (JsonParsingException e) {
             term.error(String.format("Server sent malformed data:\n%s", response));
-        } catch (IOException e) {
-            this.term.error("Could not get repsonse from server.\n");
+        } catch (IOException | NullPointerException e) {
+            this.term.error("Could not get response from server.\n");
         }
     }
 
@@ -107,8 +127,8 @@ public class Client {
             }
         } catch (JsonParsingException e) {
             term.error(String.format("Server sent malformed data:\n%s", response));
-        } catch (IOException e) {
-            this.term.error("Could not get repsonse from server.\n");
+        } catch (IOException | NullPointerException e) {
+            this.term.error("Could not get response from server.\n");
         }
     }
 
@@ -117,9 +137,8 @@ public class Client {
             this.term.error("Please load vehicles first.\n");
             return;
         }
-        term.info(this.vehicles.toString());
         String boothId = this.term.readLine("Toll Booth ID > ");
-        String registration = this.term.readLine("Vehicle Reg > ");;
+        String registration = this.term.readLine("Vehicle Reg > ");
         if(!this.vehicles.hasVehicle(registration)) {
             this.term.error(String.format("Invalid registration entered: %s\n", registration));
             return;
@@ -159,8 +178,8 @@ public class Client {
             }
         } catch (JsonParsingException e) {
             term.error(String.format("Server sent malformed data:\n%s", response));
-        } catch (IOException e) {
-            this.term.error("Could not get repsonse from server.\n");
+        } catch (IOException | NullPointerException e) {
+            this.term.error("Could not get response from server.\n");
         }
     }
 
@@ -169,7 +188,6 @@ public class Client {
             this.term.error("Please load vehicles first.\n");
             return;
         }
-        term.info(this.vehicles.toString());
         String boothId = this.term.readLine("Toll Booth ID > ");
         String registration = this.term.readLine("Vehicle Reg > ");
         if(this.vehicles.hasVehicle(registration)) {
@@ -211,8 +229,8 @@ public class Client {
             }
         } catch (JsonParsingException e) {
             term.error(String.format("Server sent malformed data:\n%s", response));
-        } catch (IOException e) {
-            this.term.error("Could not get repsonse from server.\n");
+        } catch (IOException | NullPointerException e) {
+            this.term.error("Could not get response from server.\n");
         }
     }
 

@@ -54,6 +54,8 @@ public class SocketHandler implements Runnable {
             term.info("Socket closed.\n");
         } catch (IOException e) {
             term.error(String.format("Error reading socket: %s", e.getMessage()));
+        } catch (NullPointerException e) {
+            term.error(String.format("Error reading socket: %s", e.getMessage()));
         }
     }
 
