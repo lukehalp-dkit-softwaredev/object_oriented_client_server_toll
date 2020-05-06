@@ -53,12 +53,12 @@ public class Terminal {
                 COLOR_MAGENTA + "M" + COLOR_CYAN + "C" + COLOR_WHITE + "W" + COLOR_RESET;
     }
 
-    private Scanner inputScanner;
-    private PrintWriter outputWriter;
-    private PrintWriter errorWriter;
-    private Console console;
+    private final Scanner inputScanner;
+    private final PrintWriter outputWriter;
+    private final PrintWriter errorWriter;
+    private final Console console;
     private boolean supportsAnsi;
-    private Properties settings;
+    private final Properties settings;
     private String pre;
     private String post;
 

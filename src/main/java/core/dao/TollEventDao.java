@@ -1,5 +1,6 @@
 package core.dao;
 
+import core.types.Bill;
 import core.types.TollEvent;
 import core.types.TollEvents;
 import core.types.Vehicles;
@@ -348,7 +349,7 @@ public class TollEventDao extends MySqlDao implements ITollEvent {
         try {
             con = this.getConnection();
 
-            String query = "INSERT INTO toll_events VALUES (?, ?, ?, ?)";
+            String query = "INSERT INTO toll_events(registration, image_id, timestamp, booth_id) VALUES (?, ?, ?, ?)";
             ps = con.prepareStatement(query);
             ps.setString(1, toll.getRegistration());
             ps.setLong(2, toll.getImageId());
@@ -379,7 +380,7 @@ public class TollEventDao extends MySqlDao implements ITollEvent {
         try {
             con = this.getConnection();
 
-            String query = "INSERT INTO invalid_toll_events VALUES (?, ?, ?, ?)";
+            String query = "INSERT INTO invalid_toll_events(registration, image_id, timestamp, booth_id) VALUES (?, ?, ?, ?)";
             ps = con.prepareStatement(query);
             ps.setString(1, toll.getRegistration());
             ps.setLong(2, toll.getImageId());
@@ -401,5 +402,58 @@ public class TollEventDao extends MySqlDao implements ITollEvent {
                 throw new DaoException("registerInvalidTollEvent() " + e.getMessage());
             }
         }
+    }
+
+    public List<Bill> getBills() throws DaoException {
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        HashMap<Integer, Bill> bills = new HashMap<>();
+        try {
+            con = this.getConnection();
+
+            String query = "SELECT c.customer_id, c.customer_name, c.customer_address, t.registration, t.image_id, t.timestamp, vc.type, vc.cost " +
+                    "FROM toll_events t, vehicle v, vehicle_type_cost vc, customer_vehicles cv, customer c " +
+                    "WHERE t.registration = v.vehicle_registration AND v.vehicle_id = cv.vehicle_id AND cv.customer_id = c.customer_id AND v.vehicle_type = vc.type AND t.processed = 0;";
+            ps = con.prepareStatement(query);
+
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                int customerId = rs.getInt("customer_id");
+                if(!bills.containsKey(customerId)) {
+                    String customerName = rs.getString("customer_name");
+                    String customerAddress = rs.getString("customer_address");
+                    bills.put(customerId, new Bill(customerId, customerName, customerAddress));
+                }
+                String registration = rs.getString("registration");
+                long imageId = rs.getLong("image_id");
+                Instant timestamp = rs.getTimestamp("timestamp").toInstant();
+                String type = rs.getString("type");
+                double cost = rs.getDouble("cost");
+                bills.get(customerId).addItem(registration, timestamp, type, cost);
+                String updateQuery = "UPDATE toll_events SET processed = ? WHERE image_id = ?;";
+                PreparedStatement ups = con.prepareStatement(updateQuery);
+                ups.setBoolean(1, true);
+                ups.setLong(2, imageId);
+                ups.executeUpdate();
+            }
+        } catch (SQLException e) {
+            throw new DaoException("getBills() " + e.getMessage());
+        } finally {
+            try {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (ps != null) {
+                    ps.close();
+                }
+                if (con != null) {
+                    freeConnection(con);
+                }
+            } catch (SQLException e) {
+                throw new DaoException("getBills() " + e.getMessage());
+            }
+        }
+        return new ArrayList<>(bills.values());
     }
 }

@@ -18,13 +18,13 @@ public class VehiclesDao extends MySqlDao implements IVehicle {
         try {
             con = this.getConnection();
 
-            String query = "SELECT * FROM vehicles";
+            String query = "SELECT vehicle_registration FROM vehicle";
             ps = con.prepareStatement(query);
 
             rs = ps.executeQuery();
             vehicles = new Vehicles();
             while (rs.next()) {
-                String registration = rs.getString("registration");
+                String registration = rs.getString("vehicle_registration");
                 vehicles.addVehicle(registration);
             }
         } catch (SQLException e) {

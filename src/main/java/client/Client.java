@@ -1,6 +1,7 @@
 package client;
 
 import core.Terminal;
+import core.types.Bill;
 import core.types.Vehicles;
 
 import javax.json.*;
@@ -9,13 +10,17 @@ import java.io.*;
 import java.net.Socket;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Client {
 
-    private Terminal term;
-    private Socket conn;
-    private BufferedReader in;
-    private PrintWriter out;
+    public static final String BILL_DIR = "./bills/";
+
+    private final Terminal term;
+    private final Socket conn;
+    private final BufferedReader in;
+    private final PrintWriter out;
     private boolean running;
     private Vehicles vehicles;
 
@@ -49,6 +54,9 @@ public class Client {
                 case "4":
                     registerInvalidTollEvent();
                     break;
+                case "5":
+                    doBilling();
+                    break;
                 case "q":
                     close();
                     this.running = false;
@@ -63,7 +71,7 @@ public class Client {
     }
 
     public void printMenu() {
-        this.term.info("&aToll System\n&c1. &rHeartbeat\n&c2. &rLoad Vehicles\n&c3. &rRegister Valid Toll Event\n&c4. &rRegister Invalid Toll Event\n&cq. &rQuit\n");
+        this.term.info("&aToll System\n&c1. &rHeartbeat\n&c2. &rLoad Vehicles\n&c3. &rRegister Valid Toll Event\n&c4. &rRegister Invalid Toll Event\n&c5. &rDo Billing\n&cq. &rQuit\n");
     }
 
     private boolean checkConnection() {
@@ -232,6 +240,50 @@ public class Client {
         } catch (IOException | NullPointerException e) {
             this.term.error("Could not get response from server.\n");
         }
+    }
+
+    private void doBilling() {
+        this.out.println("{\"PacketType\":\"DoBilling\"}");
+        this.out.flush();
+        String response = "";
+        try {
+            response = this.in.readLine();
+            JsonReader reader = Json.createReader(new StringReader(response));
+            JsonObject json = reader.readObject();
+            if("DoneBilling".equals(json.getString("PacketType"))) {
+                this.term.info("Got Bills.\n");
+                createBillDirectory();
+                JsonArray billJson = json.getJsonArray("Bills");
+                List<Bill> bills = new ArrayList<>();
+                for(JsonValue billValue: billJson) {
+                    JsonObject billObj = billValue.asJsonObject();
+                    Bill bill = new Bill(billObj);
+                    bills.add(bill);
+                    createBill(bill);
+                }
+            } else if("Error".equals(json.getString("PacketType"))) {
+                term.warn(json.getJsonObject("Error").getString("Message")+"\n");
+            } else {
+                term.error(String.format("Unknown server response:\n%s\n", json.toString()));
+            }
+        } catch (JsonParsingException e) {
+            term.error(String.format("Server sent malformed data:\n%s", response));
+        } catch (IOException | NullPointerException e) {
+            this.term.error("Could not get response from server.\n");
+        }
+    }
+
+    private void createBillDirectory() {
+        new File(BILL_DIR).mkdirs();
+    }
+
+    private void createBill(Bill bill) throws FileNotFoundException, UnsupportedEncodingException {
+        String filename = String.format("%s_%s.md", bill.getName(), Instant.now().toString());
+        PrintWriter writer = new PrintWriter(BILL_DIR+filename, "UTF-8");
+        writer.println(bill.displayBill());
+        writer.flush();
+        writer.close();
+        term.info(String.format("Wrote file &c%s&r\n", filename));
     }
 
     private void close() {

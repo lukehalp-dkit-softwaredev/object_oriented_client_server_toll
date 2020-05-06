@@ -4,6 +4,7 @@ import core.Terminal;
 import core.dao.DaoException;
 import core.dao.TollEventDao;
 import core.dao.VehiclesDao;
+import core.types.Bill;
 import core.types.TollEvent;
 import core.types.TollEvents;
 import core.types.Vehicles;
@@ -13,14 +14,15 @@ import javax.json.stream.JsonParsingException;
 import java.io.*;
 import java.net.Socket;
 import java.time.Instant;
+import java.util.List;
 import java.util.Scanner;
 
 public class SocketHandler implements Runnable {
 
-    private Terminal term;
-    private Socket socket;
-    private BufferedReader in;
-    private PrintWriter out;
+    private final Terminal term;
+    private final Socket socket;
+    private final BufferedReader in;
+    private final PrintWriter out;
     private boolean running;
 
     public SocketHandler(Terminal term, Socket socket) throws IOException {
@@ -52,9 +54,7 @@ public class SocketHandler implements Runnable {
             out.close();
             socket.close();
             term.info("Socket closed.\n");
-        } catch (IOException e) {
-            term.error(String.format("Error reading socket: %s", e.getMessage()));
-        } catch (NullPointerException e) {
+        } catch (IOException | NullPointerException e) {
             term.error(String.format("Error reading socket: %s", e.getMessage()));
         }
     }
@@ -83,6 +83,12 @@ public class SocketHandler implements Runnable {
             case "RegisterInvalidTollEvent": {
                 term.info("Request type: RegisterInvalidTollEvent\n");
                 out.println(registerInvalidTollEvent(json));
+                out.flush();
+                break;
+            }
+            case "DoBilling": {
+                term.info("Request type: DoBilling\n");
+                out.println(doBilling());
                 out.flush();
                 break;
             }
@@ -145,6 +151,24 @@ public class SocketHandler implements Runnable {
             new TollEventDao().registerInvalidTollEvent(event);
             return Json.createObjectBuilder()
                     .add("PacketType", "RegisteredInvalidTollEvent")
+                    .build().toString();
+        } catch (DaoException e) {
+            term.error(e.getMessage());
+            return createErrorPacket(500, "Something went wrong").toString();
+        }
+    }
+
+    private String doBilling() {
+        try {
+            List<Bill> bills = new TollEventDao().getBills();
+            JsonArrayBuilder builder = Json.createArrayBuilder();
+            for (Bill bill : bills) {
+                builder.add(bill.toJson());
+            }
+            JsonArray response = builder.build();
+            return Json.createObjectBuilder()
+                    .add("PacketType", "DoneBilling")
+                    .add("Bills", response)
                     .build().toString();
         } catch (DaoException e) {
             term.error(e.getMessage());

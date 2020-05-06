@@ -8,10 +8,10 @@ import java.net.Socket;
 
 public class Server {
 
-    private Terminal term;
-    private ServerSocket socket;
+    private final Terminal term;
+    private final ServerSocket socket;
     private boolean running;
-    private ThreadGroup threads;
+    private final ThreadGroup threads;
 
     public Server(int port) throws IOException {
         this.term = new Terminal();
